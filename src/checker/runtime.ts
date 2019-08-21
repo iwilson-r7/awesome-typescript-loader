@@ -86,7 +86,7 @@ function createChecker(receive: (cb: (msg: Req) => void) => void, send: (msg: Re
 	let compilerOptions: ts.CompilerOptions
 	let compiler: typeof ts
 	let files = new CaseInsensitiveMap<File>()
-	let ignoreDiagnostics: { [id: number]: boolean } = {}
+	let ignoreDiagnostic: (diagnostic: ts.Diagnostic) => boolean = () => false
 	let instanceName: string
 	let context: string
 	let rootFilesChanged = false
@@ -325,9 +325,20 @@ function createChecker(receive: (cb: (msg: Req) => void) => void, send: (msg: Re
 		)
 
 		if (loaderConfig.ignoreDiagnostics) {
-			loaderConfig.ignoreDiagnostics.forEach(diag => {
-				ignoreDiagnostics[diag] = true
-			})
+			const ignored: { [id: number]: boolean } = {}
+
+			for (const id of loaderConfig.ignoreDiagnostics) {
+				ignored[id] = true
+			}
+
+			ignoreDiagnostic = diagnostic => !!ignored[diagnostic.code]
+		}
+
+		if (loaderConfig.ignoreDiagnostic) {
+			let isIgnoredByCodeList = ignoreDiagnostic
+
+			ignoreDiagnostic = diagnostic =>
+				loaderConfig.ignoreDiagnostic(diagnostic, isIgnoredByCodeList(diagnostic))
 		}
 
 		let { getCustomTransformers } = loaderConfig
@@ -539,7 +550,7 @@ function createChecker(receive: (cb: (msg: Req) => void) => void, send: (msg: Re
 		log.debug(`Typechecked files:`, program.getSourceFiles())
 
 		const processedDiagnostics = allDiagnostics
-			.filter(diag => !ignoreDiagnostics[diag.code])
+			.filter(diag => !ignoreDiagnostic(diag))
 			.map(diagnostic => {
 				const message = compiler.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
 				let fileName = diagnostic.file && path.relative(context, diagnostic.file.fileName)

@@ -15,6 +15,7 @@ export interface LoaderConfig {
 	errorsAsWarnings?: boolean
 	transpileOnly?: boolean
 	ignoreDiagnostics?: number[]
+	ignoreDiagnostic?: (diagnostic: ts.Diagnostic, ignored: boolean) => boolean
 	compilerOptions?: ts.CompilerOptions
 	useTranspileModule?: boolean
 	useBabel?: boolean
